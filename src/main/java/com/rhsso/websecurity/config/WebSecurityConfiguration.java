@@ -8,9 +8,12 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.session.RegisterSessionAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 
 import javax.sql.DataSource;
 
@@ -18,16 +21,35 @@ import javax.sql.DataSource;
 @EnableWebSecurity
 public class WebSecurityConfiguration extends WebSecurityConfigurerAdapter {
 
+    private final KeycloakLogoutHandler keycloakLogoutHandler;
+
+    WebSecurityConfiguration(KeycloakLogoutHandler keycloakLogoutHandler) {
+        this.keycloakLogoutHandler = keycloakLogoutHandler;
+    }
+
+    @Bean
+    protected SessionAuthenticationStrategy sessionAuthenticationStrategy() {
+        return new RegisterSessionAuthenticationStrategy(new SessionRegistryImpl());
+    }
+
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
                 .antMatchers("/h2-console").permitAll()
                 .antMatchers("/api/*").hasAnyRole("USER","ADMIN")
                 .anyRequest().authenticated()
+                .and().logout().permitAll();
+                // .permitAll();//.authenticated();
+                // .and()
+                // .formLogin().permitAll()
+                // .and()
+                // .logout().permitAll();
+
+        http.oauth2Login()
                 .and()
-                .formLogin().permitAll()
-                .and()
-                .logout().permitAll();
+                .logout()
+                .addLogoutHandler(keycloakLogoutHandler)
+                .logoutSuccessUrl("/");
 
         http.csrf().disable();
         http.headers().frameOptions().sameOrigin();
